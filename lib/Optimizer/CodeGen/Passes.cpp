@@ -16,6 +16,28 @@ using namespace mlir;
 
 static SmallVector<std::string> z_disabledPatterns = {"R1ToU3"};
 
+static void addSdtPPipeline(OpPassManager &pm) {
+  using namespace cudaq::opt;
+  std::string basis[] = {
+      "h", "s", "t", "rx", "ry", "rz", "x", "y", "z", "z(1)",
+  };
+  BasisConversionPassOptions options;
+  options.basis = basis;
+  options.disabledPatterns = z_disabledPatterns;
+  pm.addPass(createBasisConversionPass(options));
+}
+
+static void addSdtCPipeline(OpPassManager &pm) {
+  using namespace cudaq::opt;
+  std::string basis[] = {
+      "h", "s", "t", "rx", "ry", "rz", "x", "y", "z", "x(1)",
+  };
+  BasisConversionPassOptions options;
+  options.basis = basis;
+  options.disabledPatterns = z_disabledPatterns;
+  pm.addPass(createBasisConversionPass(options));
+}
+
 static void addAnyonPPipeline(OpPassManager &pm) {
   using namespace cudaq::opt;
   std::string basis[] = {
@@ -97,6 +119,12 @@ static void addFermioniqPipeline(OpPassManager &pm) {
 }
 
 void cudaq::opt::registerTargetPipelines() {
+  PassPipelineRegistration<>("sdt-cgate-set-mapping",
+                             "Convert kernels to Sdt gate set.",
+                             addSdtCPipeline);
+  PassPipelineRegistration<>("sdt-pgate-set-mapping",
+                             "Convert kernels to Sdt gate set.",
+                             addSdtPPipeline);
   PassPipelineRegistration<>("anyon-cgate-set-mapping",
                              "Convert kernels to Anyon gate set.",
                              addAnyonCPipeline);
