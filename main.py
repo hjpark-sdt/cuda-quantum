@@ -11,5 +11,5 @@ import cudaq
 target_names = [t.name for t in cudaq.get_targets()]
 print(target_names)
 
-cudaq.set_target("nvidia")
+cudaq.set_target("sdt")
 
