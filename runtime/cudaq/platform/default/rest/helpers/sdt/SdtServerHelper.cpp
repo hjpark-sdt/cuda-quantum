@@ -51,13 +51,12 @@ protected:
   std::string configHjpark = "";
 
   // hjpark
-  // std::string QUREA_BASE_URL_DEFAULT = "https://qurea-api-local.sdt.services";      // dev-server
-  std::string QUREA_BASE_URL_DEFAULT = "http://qurea-api-local.sdt.services:30001"; // local-server
-  std::string QUREA_API_GATEWAY_PATH = "/services/job";
-  std::string QUREA_ENGINE_JOB_PATH = "/api/quantum-jobs";
-  std::string qureaBaseUrl = "";
+  std::string QUREA_COMPUTE_ENGINE_JOB_URL = "http://qurea-compute-engine-job.qurea.svc.cluster.local:8080";
+  std::string QUREA_COMPUTE_ENGINE_JOB_PATH = "/api/quantum-jobs";
+  std::string QUREA_API_KEY_NAME = "QUREA-API-KEY";
+  std::string qureaEngineUrl = "";
   std::string qureaApiKey = "";
-
+  
   /// @brief The ServerHelper requires the API token be updated every so often,
   /// using the provided refresh token. This function will do that.
   void refreshTokens(bool force_refresh = false);
@@ -67,6 +66,7 @@ protected:
   RestHeaders generateRequestHeader(std::string) const;
 
   void postMessage(ServerMessage body);
+  ServerMessage convertToBody(ServerMessage message);
 
 public:
   /// @brief Return the name of this server helper, must be the
@@ -90,14 +90,14 @@ public:
     }
     std::cout << "[SDT] QUREA_API_KEY: " << qureaApiKey << std::endl;
 
-    char* envQureaBaseUrl = getenv("QUREA_BASE_URL");
-    if (envQureaBaseUrl == NULL) {
-      std::cout << "[SDT] envQureaBaseUrl is NULL" << std::endl;
-      qureaBaseUrl = QUREA_BASE_URL_DEFAULT;
+    char* envQureaEngineUrl = getenv("QUREA_ENGINE_URL");
+    if (envQureaEngineUrl == NULL) {
+      std::cout << "[SDT] envQureaEngineUrl is NULL" << std::endl;
+      qureaEngineUrl = QUREA_COMPUTE_ENGINE_JOB_URL;
     } else {
-      qureaBaseUrl = std::string(envQureaBaseUrl);
+      qureaEngineUrl = std::string(envQureaEngineUrl);
     }
-    std::cout << "[SDT] QUREA_BASE_URL: " << qureaBaseUrl << std::endl;
+    std::cout << "[SDT] QUREA_ENGINE_URL: " << qureaEngineUrl << std::endl;
 
     // hjpark: Get user configurations
     backendConfig = config;
@@ -172,7 +172,6 @@ SdtServerHelper::createJob(std::vector<KernelExecution> &circuitCodes) {
     j["name"] = circuitCode.name;
     messages.push_back(j);
 
-    std::cout << "[SDT] Message: \n" << j << std::endl;
     /* 예시
       {
         "count": 1000,
@@ -187,7 +186,7 @@ SdtServerHelper::createJob(std::vector<KernelExecution> &circuitCodes) {
 
     // hjpark
     // if (token) {
-      postMessage(j);
+      postMessage(convertToBody(j));
       std::cout << "[SDT] API Request Completed" << std::endl;
     // }
   }
@@ -394,22 +393,53 @@ SdtServerHelper::generateRequestHeader(std::string authKey) const {
 }
 
 // hjpark
+ServerMessage SdtServerHelper::convertToBody(ServerMessage message) {
+  /*
+    entity QuantumJob {
+      @id id String
+      quantumDeviceId String
+
+      createdBy String
+      createdAt Long
+      submittedAt Long
+      startedAt Long
+      completedAt Long
+      
+      jobStatus JobStatus
+      jobExecutionId String
+      jobExecutionType JobExecutionType
+      jobExecutionData String
+      jobResultType JobResultType
+      jobResultData String
+    }
+   */
+
+  ServerMessage body;
+  // body["id"] = "";
+  body["jobStatus"] = "PENDING";
+  body["jobExecutionType"] = "QIR_10";
+  body["jobExecutionData"] = message["program"];
+  // body["shot"] = message["count"];
+
+  return body;
+}
+
+// hjpark
 void SdtServerHelper::postMessage(ServerMessage body) { // ServerMessage => nlohmann::json
   RestClient client;
   RestHeaders headers{        // RestHeaders => map<string, string>
-    {"Authorization", qureaApiKey},
     {"Content-Type", "application/json"},
     {"Connection", "keep-alive"},
-    {"Accept", "*/*"}
+    {"Accept", "*/*"},
+    {QUREA_API_KEY_NAME, qureaApiKey}
   };
 
-  std::string url = qureaBaseUrl;
-  std::string path = QUREA_API_GATEWAY_PATH + QUREA_ENGINE_JOB_PATH;
   std::cout << "[SDT] -------------------------- \n" << std::endl;
-  std::cout << "[SDT] QUREA API url: \n" << url << std::endl;
-  std::cout << "[SDT] QUREA API path: \n" << path << std::endl;
+  std::cout << "[SDT] QUREA API url: \n" << qureaEngineUrl << std::endl;
+  std::cout << "[SDT] QUREA API path: \n" << QUREA_COMPUTE_ENGINE_JOB_PATH << std::endl;
+  std::cout << "[SDT] QUREA API body: \n" << body << std::endl;
 
-  ServerMessage response = client.post(url, path, body, headers);
+  ServerMessage response = client.post(qureaEngineUrl, QUREA_COMPUTE_ENGINE_JOB_PATH, body, headers);
   std::cout << "[SDT] Job API POST response: \n" << response << std::endl;
   // ServerMessage response1 = client.get(url, path, headers);
   // std::cout << "[SDT] Job API GET response: \n" << response1 << std::endl;
